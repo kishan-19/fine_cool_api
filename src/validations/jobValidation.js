@@ -11,10 +11,21 @@ const deleteValidation = [
   validateRequest,
 ];
 
+const detailsValidation = [
+  body("job_id").notEmpty().withMessage("Please enter the job id"),
+  validateRequest,
+];
+
 const jobTransferValidation = [
   body("job_id").notEmpty().withMessage("Please enter the job id"),
   body("technician_id").notEmpty().withMessage("Please enter the technician id"),
   validateRequest,
 ];
 
-module.exports = { addValidation, deleteValidation, jobTransferValidation };
+const addPaymentValidation = [
+  body("job_id").notEmpty().withMessage("Please enter the job id"),
+  body("amount").notEmpty().withMessage("Please enter the amount"),
+  validateRequest,
+];
+
+module.exports = { addValidation, deleteValidation, jobTransferValidation, addPaymentValidation , detailsValidation };

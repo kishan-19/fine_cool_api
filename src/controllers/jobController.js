@@ -6,10 +6,12 @@ const tryCatch = require("../utils/tryCatch");
 
 const db = require("../models");
 const { where } = require("sequelize");
+const { getPaymentStatus } = require("../utils/commonUtils");
 
 const Jobs = db.jobs;
 const acVariation = db.ac_variations;
 const User = db.users;
+const AddPayment = db.add_payment;
 
 const listJobs = tryCatch(async function (req, res, next) {
   const pagination = Pagination.build(req.body);
@@ -62,6 +64,7 @@ const addJob = tryCatch(async function (req, res, next) {
     remarks,
     id,
     ac_variation,
+    technician_id,
   } = req.body;
 
   if (hasValue(id)) {
@@ -119,6 +122,24 @@ const addJob = tryCatch(async function (req, res, next) {
   }
 
   // Add new job
+  let technician = null;
+
+  if (req.user.role_name === "Technician") {
+    technician = req.user;
+  } else {
+    if (hasValue(technician_id)) {
+      technician = await User.findOne({
+        where: { id: technician_id, role_name: "Technician" },
+      });
+
+      if (!technician) {
+        throw new AppError("Invalid Technician Id", 404);
+      } else if (!technician.isActive) {
+        throw new AppError("Technician is not active", 400);
+      }
+    }
+  }
+
   const creatJob = await Jobs.create({
     name: name || "",
     contact_no: contact_no || "",
@@ -133,6 +154,8 @@ const addJob = tryCatch(async function (req, res, next) {
     date: date || "",
     price: price || "",
     remarks: remarks || "",
+    assigned_to: technician?.id || 0,
+    technician_name: technician?.username || "",
   });
 
   let variationData = ac_variation;
@@ -185,6 +208,35 @@ const deletejob = tryCatch(async function (req, res, next) {
   });
 });
 
+const details = tryCatch(async function (req, res, next) {
+  const { job_id } = req.body;
+
+  const jobsDetils = await Jobs.findByPk(job_id, {
+    include: [
+      {
+        model: AddPayment,
+        as: "add_payment",
+        required: false,
+        attributes: {
+          exclude: ["createdAt", "updatedAt"],
+        },
+      },
+    ],
+    attributes: {
+      exclude: ["deleted_at"],
+    },
+  });
+  if (!jobsDetils) {
+    throw new AppError("Job details not found", 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Job details found",
+    data: jobsDetils,
+  });
+});
+
 const jobTransfer = tryCatch(async function (req, res, next) {
   const { job_id, technician_id } = req.body;
 
@@ -215,4 +267,48 @@ const jobTransfer = tryCatch(async function (req, res, next) {
   });
 });
 
-module.exports = { addJob, listJobs, deletejob, jobTransfer };
+const addPayment = tryCatch(async function (req, res, next) {
+  const { job_id, amount, mode, remark, date } = req.body;
+
+  const jobData = await Jobs.findByPk(job_id);
+
+  if (!jobData) {
+    throw new AppError("Invalid Job Id", 404);
+  }
+
+  const payment = await AddPayment.create({
+    job_id: job_id,
+    amount: amount,
+    mode: mode || "",
+    remark: remark || "",
+    date: date || "",
+  });
+
+  const totalPaidAmount = await AddPayment.sum("amount", {
+    where: { job_id }
+  });
+
+  const paymentStatus = getPaymentStatus(
+    totalPaidAmount,
+    jobData.price
+  );
+
+   await jobData.update({
+    total_paid: totalPaidAmount,
+    payment_status: paymentStatus
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Payment added successfully",
+  });
+});
+
+module.exports = {
+  addJob,
+  listJobs,
+  deletejob,
+  jobTransfer,
+  addPayment,
+  details,
+};

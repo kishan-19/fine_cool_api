@@ -69,6 +69,17 @@ const Jobs = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
     },
+    payment_status: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "Pending",
+      enum: ["Pending", "Partially Paid", "Paid"],
+    },
+     total_paid: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "",
+    },
     remarks: {
       type: DataTypes.TEXT,
       allowNull: false,

@@ -12,7 +12,10 @@ const AuthMiddleware = tryCatch(async (req, res, next) => {
 
   const decode = jwt.verify(token, JWT_SECRET);
   
-  req.user = decode;
+  req.user = decode; 
+  console.log(req.user);
+  
+   
 
   next();
 });

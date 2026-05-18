@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { sequelize } = require("../config/db");
+const { createHasManyRelation } = require("../utils/associationHelper");
 
 const db = {};
 
@@ -19,6 +20,7 @@ Object.keys(db).forEach((modelName) => {
   }
 });
 
+
 db.jobs.hasMany(db.ac_variations, {
   foreignKey: "job_id",
   as: "ac_variations",
@@ -32,7 +34,13 @@ db.ac_variations.belongsTo(db.jobs, {
   as: "job",
 });
 
-
+createHasManyRelation({
+  parentModel: db.jobs,
+  childModel: db.add_payment,
+  alias: "add_payment",
+  foreignKey: "job_id",
+  paranoid: false,
+});
 
 db.sequelize = sequelize;
 

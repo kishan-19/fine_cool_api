@@ -7,6 +7,6 @@ const checkToken = tryCatch(async (req, res) => {
         message: "Token is valid",
     });
 
-});
+}); 
 
 module.exports = { checkToken };
