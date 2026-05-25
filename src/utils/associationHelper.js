@@ -10,9 +10,9 @@ const createHasManyRelation = ({
   parentModel.hasMany(childModel, {
     foreignKey,
     as: alias,
-    onDelete: cascade ? "CASCADE" : "SET NULL",
+    onDelete: cascade ? "CASCADE" : "SET NULL",  // parent delele chile also delete "CASCADE"  
     hooks: true,
-    paranoid,
+    paranoid, // true - sofet delete  false - not soft delete
   });
 
   childModel.belongsTo(parentModel, {

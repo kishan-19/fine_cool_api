@@ -3,6 +3,8 @@ const hasValue = require("../utils/hasValue");
 const tryCatch = require("../utils/tryCatch");
 
 const db = require("../models");
+const { Op } = require("sequelize");
+const Pagination = require("../utils/Pagination");
 const User = db.users;
 const Roles = db.roles;
 
@@ -101,8 +103,6 @@ const addUser = tryCatch(async (req, res) => {
   }
 
   if (existingContact && existingContact.deleted_at) {
-    
-    
     const existingEmail = await User.findOne({
       where: { email },
       paranoid: false,
@@ -111,9 +111,9 @@ const addUser = tryCatch(async (req, res) => {
     if (existingEmail && !existingEmail.deleted_at) {
       throw new AppError("Email already exists", 400);
     }
-    
+
     await existingContact.restore();
-    
+
     let roleObject = null;
 
     if (role_id) {
@@ -151,34 +151,34 @@ const addUser = tryCatch(async (req, res) => {
     }
 
     if (existingEmail && existingEmail.deleted_at) {
-    await existingEmail.restore();
+      await existingEmail.restore();
 
-    let roleObject = null;
+      let roleObject = null;
 
-    if (role_id) {
-      roleObject = await Roles.findOne({
-        where: { role_id: parseInt(role_id) },
+      if (role_id) {
+        roleObject = await Roles.findOne({
+          where: { role_id: parseInt(role_id) },
+        });
+      }
+
+      await existingEmail.update({
+        username: username || "",
+        contact_no: contact_no,
+        password: password || "",
+        role_name: roleObject?.role_name || "Technician",
+        role_id: roleObject?.role_id || 3,
+        area: area || "",
+        city: city || "",
+        state: state || "",
+        pincode: pincode || "",
+        company_name,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "User restored successfully",
       });
     }
-
-    await existingEmail.update({
-      username: username || "",
-      contact_no: contact_no,
-      password: password || "",
-      role_name: roleObject?.role_name || "Technician",
-      role_id: roleObject?.role_id || 3,
-      area: area || "",
-      city: city || "",
-      state: state || "",
-      pincode: pincode || "",
-      company_name,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "User restored successfully",
-    });
-  }
   }
 
   let roleObject = null;
@@ -208,10 +208,22 @@ const addUser = tryCatch(async (req, res) => {
 });
 
 const getUsers = tryCatch(async (req, res) => {
+  const { search } = req.body || {};
+   const pagination = Pagination.build(req.body);
   const users = await User.findAll({
-    required: false,
+    where: search
+      ? {
+          username: {
+            [Op.like]: `%${search}%`,
+          },
+        }
+      : {},
     order: [["id", "DESC"]],
-    attributes: {
+    ...(pagination.isPaginated &&{
+      limit: pagination.limit,
+      offset: pagination.offset,
+    }),
+    attributes: { 
       exclude: ["token", "password", "deleted_at"],
     },
   });

@@ -5,20 +5,50 @@ const Pagination = require("../utils/Pagination");
 const tryCatch = require("../utils/tryCatch");
 
 const db = require("../models");
-const { where } = require("sequelize");
+const { where, Op } = require("sequelize");
 const { getPaymentStatus } = require("../utils/commonUtils");
 
 const Jobs = db.jobs;
 const acVariation = db.ac_variations;
 const User = db.users;
 const AddPayment = db.add_payment;
+const jobVariation = db.jobs_variations;
 
 const listJobs = tryCatch(async function (req, res, next) {
   const pagination = Pagination.build(req.body);
+  const { search, payment_status } = req.body || {};
+
+  let paymentFilter = {};
+
+  if (payment_status === "Received") {
+    paymentFilter = {
+      payment_status: {
+        [Op.in]: ["Paid", "Partially Paid"],
+      },
+    };
+  } else if (payment_status === "Partially Pending") {
+    paymentFilter = {
+      payment_status: {
+        [Op.in]: ["Partially Paid", "Pending"],
+      },
+    };
+  } else if (payment_status) {
+    paymentFilter = {
+      payment_status: payment_status,
+    };
+  }
 
   const jobs = await Jobs.findAndCountAll({
     distinct: true,
     col: "id",
+    where: {
+      ...(search && {
+        name: {
+          [Op.like]: `%${search}%`,
+        },
+      }),
+      ...paymentFilter,
+    },
     include: [
       {
         model: acVariation,
@@ -58,6 +88,7 @@ const addJob = tryCatch(async function (req, res, next) {
     ac_type,
     job_type,
     contract_period,
+    service_number,
     service_type,
     date,
     price,
@@ -140,6 +171,7 @@ const addJob = tryCatch(async function (req, res, next) {
     }
   }
 
+
   const creatJob = await Jobs.create({
     name: name || "",
     contact_no: contact_no || "",
@@ -179,6 +211,60 @@ const addJob = tryCatch(async function (req, res, next) {
     }));
 
     await acVariation.bulkCreate(formattedData);
+  }
+
+   const NUMBER_OF_SERVICE_IN_YEAR = 3;
+  let how_many_service = 0;
+  let months_count = 0;
+
+  function getDates(totalMonths, totalParts) {
+    const startDate = new Date(date);
+
+    if (isNaN(startDate)) {
+        return "Invalid date";
+    }
+    
+    let dates = [];
+
+    const gap = totalMonths / (totalParts - 1);
+
+    for (let i = 0; i < totalParts; i++) {
+      let date = new Date(startDate);
+
+      date.setMonth(date.getMonth() + gap * i);
+
+      dates.push(date.toISOString().split("T")[0]);
+    }
+
+    return dates;
+  }
+
+  if (job_type === "AMC Contract") {
+    switch (contract_period) {
+      case "1 Year":
+        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 1;
+        months_count = 12;
+        break;
+      case "2 Year":
+        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 2 - 1;
+        months_count = 24;
+        break;
+      case "3 Year":
+        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 3 - 2;
+        months_count = 36;
+        break;
+      case "6 Month":
+        how_many_service = hasValue(service_number) ? service_number : 2;
+        break;
+      default:
+        how_many_service = 0;
+        months_count = 0;
+    }
+    const jobvariationData = getDates(months_count, how_many_service).map((date)=>({
+      	job_id: creatJob.id,
+        start_date: date,
+    }));
+    await jobVariation.bulkCreate(jobvariationData);
   }
 
   return res.status(200).json({
@@ -285,17 +371,14 @@ const addPayment = tryCatch(async function (req, res, next) {
   });
 
   const totalPaidAmount = await AddPayment.sum("amount", {
-    where: { job_id }
+    where: { job_id },
   });
 
-  const paymentStatus = getPaymentStatus(
-    totalPaidAmount,
-    jobData.price
-  );
+  const paymentStatus = getPaymentStatus(totalPaidAmount, jobData.price);
 
-   await jobData.update({
+  await jobData.update({
     total_paid: totalPaidAmount,
-    payment_status: paymentStatus
+    payment_status: paymentStatus,
   });
 
   return res.status(200).json({

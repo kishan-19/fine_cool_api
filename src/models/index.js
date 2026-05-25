@@ -42,6 +42,15 @@ createHasManyRelation({
   paranoid: false,
 });
 
+createHasManyRelation({
+  parentModel: db.jobs,
+  childModel: db.jobs_variations,
+  alias: "jobs_variations",
+  foreignKey: "job_id",
+  cascade: true,
+  paranoid: false,
+});
+
 db.sequelize = sequelize;
 
 module.exports = db;

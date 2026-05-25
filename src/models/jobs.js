@@ -73,7 +73,7 @@ const Jobs = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
       defaultValue: "Pending",
-      enum: ["Pending", "Partially Paid", "Paid"],
+      enum: ["Pending", "Partially Pa id", "Paid"],
     },
      total_paid: {
       type: DataTypes.STRING(20),
