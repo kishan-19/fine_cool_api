@@ -1,5 +1,6 @@
 const { validationResult } = require("express-validator");
 const jwt = require('jsonwebtoken');
+const multer = require("multer");
 
 const errorHandler = (err, req, res, next) => {
 
@@ -14,6 +15,13 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({
       message: 'Invalid Token',
       success: false,
+    })
+  }
+
+  if(err instanceof multer.MulterError){
+    return res.status(401).json({
+      message: 'error form uploading',
+      success:false
     })
   }
 

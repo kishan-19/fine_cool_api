@@ -7,6 +7,11 @@ const tryCatch = require("../utils/tryCatch");
 const db = require("../models");
 const { where, Op } = require("sequelize");
 const { getPaymentStatus } = require("../utils/commonUtils");
+const {
+  processImages,
+  deleteImages,
+  generateImageUrlsFromString,
+} = require("../middlewares/uploadMiddleware");
 
 const Jobs = db.jobs;
 const acVariation = db.ac_variations;
@@ -171,7 +176,6 @@ const addJob = tryCatch(async function (req, res, next) {
     }
   }
 
-
   const creatJob = await Jobs.create({
     name: name || "",
     contact_no: contact_no || "",
@@ -213,7 +217,7 @@ const addJob = tryCatch(async function (req, res, next) {
     await acVariation.bulkCreate(formattedData);
   }
 
-   const NUMBER_OF_SERVICE_IN_YEAR = 3;
+  const NUMBER_OF_SERVICE_IN_YEAR = 3;
   let how_many_service = 0;
   let months_count = 0;
 
@@ -221,9 +225,9 @@ const addJob = tryCatch(async function (req, res, next) {
     const startDate = new Date(date);
 
     if (isNaN(startDate)) {
-        return "Invalid date";
+      return "Invalid date";
     }
-    
+
     let dates = [];
 
     const gap = totalMonths / (totalParts - 1);
@@ -242,15 +246,21 @@ const addJob = tryCatch(async function (req, res, next) {
   if (job_type === "AMC Contract") {
     switch (contract_period) {
       case "1 Year":
-        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 1;
+        how_many_service = hasValue(service_number)
+          ? service_number
+          : NUMBER_OF_SERVICE_IN_YEAR * 1;
         months_count = 12;
         break;
       case "2 Year":
-        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 2 - 1;
+        how_many_service = hasValue(service_number)
+          ? service_number
+          : NUMBER_OF_SERVICE_IN_YEAR * 2 - 1;
         months_count = 24;
         break;
       case "3 Year":
-        how_many_service = hasValue(service_number) ? service_number : NUMBER_OF_SERVICE_IN_YEAR * 3 - 2;
+        how_many_service = hasValue(service_number)
+          ? service_number
+          : NUMBER_OF_SERVICE_IN_YEAR * 3 - 2;
         months_count = 36;
         break;
       case "6 Month":
@@ -260,10 +270,12 @@ const addJob = tryCatch(async function (req, res, next) {
         how_many_service = 0;
         months_count = 0;
     }
-    const jobvariationData = getDates(months_count, how_many_service).map((date)=>({
-      	job_id: creatJob.id,
+    const jobvariationData = getDates(months_count, how_many_service).map(
+      (date) => ({
+        job_id: creatJob.id,
         start_date: date,
-    }));
+      }),
+    );
     await jobVariation.bulkCreate(jobvariationData);
   }
 
@@ -306,7 +318,11 @@ const details = tryCatch(async function (req, res, next) {
         attributes: {
           exclude: ["createdAt", "updatedAt"],
         },
-      },
+      },{
+        model:jobVariation,
+        as:"jobs_variations",
+        required:false,
+      }
     ],
     attributes: {
       exclude: ["deleted_at"],
@@ -316,10 +332,21 @@ const details = tryCatch(async function (req, res, next) {
     throw new AppError("Job details not found", 404);
   }
 
+   let data = jobsDetils.toJSON();
+
+   if(data.jobs_variations){
+    data.jobs_variations = data.jobs_variations.map(item =>{
+        return {
+          ...item,
+          start_job_image:generateImageUrlsFromString(req,item.start_job_image),
+          end_job_image:generateImageUrlsFromString(req,item.end_job_image),
+        }
+    });
+   }
   return res.status(200).json({
     success: true,
     message: "Job details found",
-    data: jobsDetils,
+    data,
   });
 });
 
@@ -387,6 +414,92 @@ const addPayment = tryCatch(async function (req, res, next) {
   });
 });
 
+const startJob = tryCatch(async function (req, res, next) {
+  const { id, job_id, remark, start_date } = req.body;
+
+  const jobVariationDetils = await jobVariation.findByPk(id);
+  if (!jobVariationDetils) {
+    throw new AppError("Invalid job request id", 404);
+  }
+
+  if (jobVariationDetils.job_id !== Number(job_id)) {
+    throw new AppError("Invalide job id!", 404);
+  }
+
+  let oldImages = jobVariationDetils.start_job_image || [];
+  let removedImages = [];
+
+  if (oldImages) {
+    removedImages = JSON.parse(oldImages);
+    deleteImages(removedImages);
+  }
+
+  let imageName = [];
+  if (req.files?.length) {
+    imageName = await processImages(req.files, {
+      width: 800,
+      height: 800,
+      quality: 70,
+      format: "jpeg",
+    });
+  }
+
+  await jobVariationDetils.update({
+    status: "In Progress",
+    remark: remark || "",
+    start_date: DateUtil.parseDate(start_date),
+    start_job_image: imageName,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Job start successfully",
+  });
+});
+
+const endJob = tryCatch(async function (req, res, next) {
+  const { id, job_id, end_remark, end_date, recived_payment } = req.body;
+
+  const jobVariationDetils = await jobVariation.findByPk(id);
+  if (!jobVariationDetils) {
+    throw new AppError("Invalid job request id", 404);
+  }
+
+  if (jobVariationDetils.job_id !== Number(job_id)) {
+    throw new AppError("Invalide job id!", 404);
+  }
+
+  let oldImages = jobVariationDetils.end_job_image || [];
+  let removedImages = [];
+
+  if (oldImages) {
+    removedImages = JSON.parse(oldImages);
+    deleteImages(removedImages);
+  }
+
+  let imageName = [];
+  if (req.files?.length) {
+    imageName = await processImages(req.files, {
+      width: 800,
+      height: 800,
+      quality: 70,
+      format: "jpeg",
+    });
+  }
+
+  await jobVariationDetils.update({
+    status: "Completed",
+    recived_payment: recived_payment || "",
+    end_remark: end_remark || "",
+    end_date: DateUtil.parseDate(end_date),
+    end_job_image: imageName,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Job end successfully",
+  });
+});
 module.exports = {
   addJob,
   listJobs,
@@ -394,4 +507,6 @@ module.exports = {
   jobTransfer,
   addPayment,
   details,
+  startJob,
+  endJob
 };

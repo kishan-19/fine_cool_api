@@ -28,4 +28,10 @@ const addPaymentValidation = [
   validateRequest,
 ];
 
-module.exports = { addValidation, deleteValidation, jobTransferValidation, addPaymentValidation , detailsValidation };
+const startJobValidation = [
+  body("job_id").notEmpty().withMessage("Please enter the job id"),
+  body("id").notEmpty().withMessage("Palease enter job request id"),
+  validateRequest,
+]
+
+module.exports = { addValidation, deleteValidation, jobTransferValidation, addPaymentValidation , detailsValidation , startJobValidation};

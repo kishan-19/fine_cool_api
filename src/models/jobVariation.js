@@ -47,10 +47,20 @@ const jobVariation = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
     },
-    recived_payment:{
+    recived_payment: {
       type: DataTypes.STRING(50),
-      allowNull:false,
-      defaultValue:"", 
+      allowNull: false,
+      defaultValue: "",
+    },
+    start_job_image: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+    },
+    end_job_image: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
     },
     created_at: {
       type: DataTypes.DATE,

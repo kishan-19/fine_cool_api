@@ -1,54 +1,67 @@
-const dayjs = require("dayjs");
-const customParseFormat = require("dayjs/plugin/customParseFormat");
-
-dayjs.extend(customParseFormat);
+const moment = require("moment");
 
 class DateUtil {
+  /*
+  |--------------------------------------------------------------------------
+  | DEFAULT FORMAT
+  |--------------------------------------------------------------------------
+  */
+  static DEFAULT_FORMAT = "DD-MM-YYYY";
 
-    // All supported input formats
-    static inputFormats = [
-        "DD/MM/YYYY",
-        "DD-MM-YYYY",
-        "YYYY-MM-DD",
-        "DD-MMM-YYYY",
-        "DD-MMMM-YYYY"
-    ];
+  /*
+  |--------------------------------------------------------------------------
+  | PARSE DATE → TIMESTAMP (FOR DB STORE)
+  |--------------------------------------------------------------------------
+  */
+  static parseDate(date) {
+    if (!date) return null;
+    const parsed = Date.parse(date);
+    return isNaN(parsed) ? null : parsed;
+  }
 
-    // String -> Day.js Date
-    static toDate(dateStr) {
-        if (!dateStr) return null;
+  /*
+  |--------------------------------------------------------------------------
+  | FORMAT DATE → HUMAN READABLE
+  |--------------------------------------------------------------------------
+  */
+  static formatDate(date, format = DateUtil.DEFAULT_FORMAT) {
+    if (!date) return null;
+    const m = moment(date);
+    if (!m.isValid()) return null;
+    return m.format(format);
+  }
 
-        const d = dayjs(dateStr, this.inputFormats, true);
+  /*
+  |--------------------------------------------------------------------------
+  | SMART DATE (STORE + SHOW TOGETHER)
+  |--------------------------------------------------------------------------
+  */
+  static smartDate(date) {
+    if (!date) return null;
 
-        if (!d.isValid()) {
-            throw new Error("Invalid Date Format: " + dateStr);
-        }
+    const parsed = Date.parse(date);
 
-        return d;
+    if (!isNaN(parsed)) {
+      return {
+        store: parsed,
+        show: moment(parsed).format(DateUtil.DEFAULT_FORMAT),
+      };
     }
 
-    // Date/String -> formatted string
-    static format(dateInput, format = "DD-MM-YYYY") {
+    return {
+      store: null,
+      show: null,
+    };
+  }
 
-        const d = dayjs.isDayjs(dateInput)
-            ? dateInput
-            : this.toDate(dateInput);
-
-        return d.format(format);
-    }
-
-    // Convert any format -> any format
-    static convert(dateStr, toFormat) {
-
-        const d = this.toDate(dateStr);
-
-        return d.format(toFormat);
-    }
-
-    // Current date
-    static now(format = "DD-MM-YYYY") {
-        return dayjs().format(format);
-    }
+  /*
+  |--------------------------------------------------------------------------
+  | CURRENT DATE
+  |--------------------------------------------------------------------------
+  */
+  static now(format = DateUtil.DEFAULT_FORMAT) {
+    return moment().format(format);
+  }
 }
 
 module.exports = DateUtil;
