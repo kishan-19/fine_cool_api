@@ -79,14 +79,18 @@ const User = sequelize.define(
       allowNull: false,
       len: [6, 6],
     },
-     deleted_at: {
-          type: DataTypes.DATE,
-          allowNull: true,
-        },
+    FCM_token: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: "users",
-     paranoid: true,
+    paranoid: true,
     deletedAt: "deleted_at",
     timestamps: true, // This automatically adds `createdAt` and `updatedAt`
   },
