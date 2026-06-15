@@ -96,7 +96,7 @@ const sendAllUserNotification = tryCatch(async (req, res, next) => {
       body: body || "Message",
     },
 
-    data: data || {},
+    data: formattedData || {},
 
     android: {
       priority: "high",
