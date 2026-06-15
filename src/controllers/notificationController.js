@@ -52,7 +52,7 @@ const sendNotifiaction = tryCatch(async (req, res, next) => {
 });
 
 const sendAllUserNotification = tryCatch(async (req, res, next) => {
-  const { title, body, data } = req.body;
+  const { title, body, data, image } = req.body;
 
   const users = await User.findAll({
     where: {
@@ -100,13 +100,24 @@ const sendAllUserNotification = tryCatch(async (req, res, next) => {
 
     android: {
       priority: "high",
+      notification: {
+        imageUrl: image,
+      },
     },
 
     apns: {
+      fcm_options: {
+        image: image,
+      },
       payload: {
         aps: {
           sound: "default",
         },
+      },
+    },
+    webpush: {
+      headers: {
+        image: image,
       },
     },
   };
